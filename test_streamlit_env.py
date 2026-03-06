@@ -11,7 +11,7 @@ def test_streamlit_context():
         os.environ["GOOGLE_API_KEY"] = api_key
         finder = YouTubeTrendingFinder()
         print("[*] Initializing finder...")
-        results = finder.get_trending_videos(max_duration=240, region_code='KR', only_korean=True)
+        results = finder.get_trending_videos(max_duration=240, region_code='KR', language='ko')
         print(f"[*] Found {len(results)} videos.")
         for v in results[:3]:
             print(f"  - {v['title']} ({v['view_count']} views)")

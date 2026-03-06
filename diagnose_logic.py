@@ -13,7 +13,7 @@ def diagnose():
     
     print("[*] Testing get_trending_videos...")
     # 필터를 조금 완화해서 테스트 (AI 필터는 유지하되 길이는 넉넉하게)
-    results = finder.get_trending_videos(max_duration=600, only_korean=True)
+    results = finder.get_trending_videos(max_duration=600, language='ko')
     
     print(f"[*] Found {len(results)} videos in trending (filtered by AI keywords)")
     for v in results[:3]:

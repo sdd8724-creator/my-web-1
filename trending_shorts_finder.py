@@ -25,9 +25,9 @@ class YouTubeTrendingFinder:
             'viggle', 'hailuo', 'minimax', 'haiper', 'dreammachine', 'jimeng', 'aigc',
             'animated ai', 'ai animation', 'ai film', 'ai movie', 'synthetic media', 
             'generative video', 'ai 애니메이션', '소라 ai', '클링 ai', '루마 ai', '단편영화', 
-            'ai 스토리', 'ai 웹툰', 'ai 만화', '인공지능 애니메이션', 'ai 영상', 'ai 생성',
+            'ai 스토리', 'ai 웹툰', 'ai 만화', '인공지능 애니메이션', 'ai 영상', 'ai 생성', 'ai 실사화',
             'unreal engine', 'unreal animation', 'blender 3d', 'cgi animation', '3d animation',
-            'vfx', 'visual effects', 'ai 실사화', 'ai 룩북'
+            'vfx', 'visual effects', 'ai 룩북', 'ai 쇼츠', 'ai 비디오', 'ai 제작', 'ai 작업물'
         ]
         
         self.animation_keywords = [
@@ -52,11 +52,16 @@ class YouTubeTrendingFinder:
         # 공백 제거 버전도 확인하여 'ai애니' 같은 경우 탐지
         text_no_space = full_text.replace(" ", "")
         
+        # 명백한 외국어 문자 (Hindi, Arabic 등) 포함 여부 확인
+        # Devanagari (Hindi): \u0900-\u097F
+        # Arabic: \u0600-\u06FF
+        has_foreign_script = bool(re.search(r'[\u0900-\u097f\u0600-\u06ff]', full_text))
+        
         kws = self.ai_keywords + self.animation_keywords
         for kw in kws:
             if kw in full_text or kw.replace(" ", "") in text_no_space:
-                return True, kw
-        return False, None
+                return True, kw, has_foreign_script
+        return False, None, has_foreign_script
 
     def get_search_results(self, query, max_duration=240, max_results=50, published_after=None, region_code='KR', language='ko', order='viewCount'):
         if not self.youtube: return []
@@ -123,21 +128,29 @@ class YouTubeTrendingFinder:
                 except: continue
                 if duration_seconds > max_duration: continue
 
-                is_valid, matched_kw = self.is_ai_content(
+                is_valid, matched_kw, has_foreign_script = self.is_ai_content(
                     title, description, snippet.get('tags', []), snippet.get('channelTitle', '')
                 )
                 if not is_valid: 
                     continue
 
-                # 언어 필터링
-                has_hangul = bool(re.search(r'[\uac00-\ud7a3]', title + description))
+                # 언어 필터링 강화
+                channel_title = snippet.get('channelTitle', '')
+                has_hangul_title = bool(re.search(r'[\uac00-\ud7a3]', title))
+                has_hangul_anywhere = bool(re.search(r'[\uac00-\ud7a3]', title + description + channel_title))
+                
                 if language == 'ko':
-                    # 한국 영상: 한글이 있거나, 한글이 없더라도 한국 인기 차트 출신이면 허용
-                    if not has_hangul and region_code != 'KR':
+                    # 한국 영상 모드:
+                    # 1. 힌디어나 아랍어 같은 외국 문자가 포함되어 있으면 즉시 제외
+                    if has_foreign_script:
+                        continue
+                    
+                    # 2. 제목에 한글이 반드시 포함되어야 함 (사용자 요청 사항)
+                    if not has_hangul_title:
                         continue
                 elif language == 'foreign':
-                    # 외국 영상: 한글이 포함된 영상은 제외
-                    if has_hangul:
+                    # 외국 영상 모드: 한글이 포함된 영상은 제외
+                    if has_hangul_anywhere:
                         continue
                 # language == 'all' 이면 필터링 없음
                 
@@ -208,14 +221,14 @@ class YouTubeTrendingFinder:
                 published_after = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=30)).strftime('%Y-%m-%dT%H:%M:%SZ')
                 
                 # 여러 키워드로 검색하여 풍성한 결과 확보 (최신순 결합)
-                supplemental_queries = ["AI 애니메이션", "#shorts AI", "AI Shorts"]
+                supplemental_queries = ["AI 애니메이션", "AI 쇼츠", "#shorts AI", "AI Shorts"]
                 for query in supplemental_queries:
-                    if len(all_results) >= 25: break # 충분히 모이면 종료
+                    if len(all_results) >= 20: break # 충분히 모이면 종료
                     
                     search_results = self.get_search_results(
                         query=query,
                         max_duration=max_duration,
-                        max_results=100,
+                        max_results=300, # 검색 깊이를 300으로 상향 (필터 통과 가능성 높임)
                         published_after=published_after, # 필터 추가
                         region_code=region_code,
                         language=language,
