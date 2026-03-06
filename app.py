@@ -75,7 +75,3 @@ def search():
         "results": results
     })
 
-if __name__ == '__main__':
-    if not os.getenv("GOOGLE_API_KEY"):
-        print("CRITICAL: GOOGLE_API_KEY is not set in .env file.")
-    app.run(debug=True, port=5000)
